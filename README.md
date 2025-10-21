@@ -4,7 +4,7 @@
 
 - Framework: FastAPI  
 - 서버 실행: Uvicorn  
-- 언어: Python 3.9  
+- 언어: Python 3.10 
 
 
 
@@ -13,7 +13,7 @@
 ### conda 생성 및 실행
 > 생성
 ```bash
-conda create -n parrokit-recommender python=3.9
+conda create -n parrokit-recommender python=3.10
 ```
 >  실행
 ```bash
