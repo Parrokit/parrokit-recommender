@@ -6,11 +6,16 @@
 - 서버 실행: Uvicorn  
 - 언어: Python 3.9  
 
----
+
 
 ## 설치 및 실행 방법
 
-### conda 실행
+### conda 생성 및 실행
+> 생성
+```bash
+conda create -n parrokit-recommender python=3.9
+```
+>  실행
 ```bash
 conda activate parrokit-recommender
 ```
@@ -22,6 +27,11 @@ pip install -r requirements.txt
 ```
 
 ### 서버 실행
+> 기본
 ```bash
 uvicorn app.main:app --reload
+```
+> 귀찮으면 makefile
+```bash
+make dev
 ```
