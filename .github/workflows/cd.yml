@@ -61,11 +61,12 @@ jobs:
               sudo systemctl enable --now docker
             fi
 
-            # Login to GHCR (required for private images); uses password-stdin to avoid warning
-            echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-            # Pull the newest image
-            sudo docker pull "${IMAGE_LC}:latest"
+            # 1) Try anonymous pull first (works if GHCR package is public)
+            if ! sudo docker pull "${IMAGE_LC}:latest"; then
+              echo "Anonymous pull denied. Trying authenticated pull..."
+              echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+              sudo docker pull "${IMAGE_LC}:latest"
+            fi
 
             # Stop and remove existing container if present
             sudo docker stop parrokit || true
