@@ -61,10 +61,26 @@ jobs:
               sudo systemctl enable --now docker
             fi
 
+            echo "[deploy] target image: ${IMAGE_LC}"
+
             # 1) Try anonymous pull first (works if GHCR package is public)
             if ! sudo docker pull "${IMAGE_LC}:latest"; then
-              echo "Anonymous pull denied. Trying authenticated pull..."
-              echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+              echo "[deploy] Anonymous pull denied. Trying authenticated pull..."
+
+              # Fallback username: prefer GHCR_USERNAME secret, else use github.actor
+              USERNAME="${{ secrets.GHCR_USERNAME }}"
+              if [ -z "$USERNAME" ]; then
+                USERNAME="${{ github.actor }}"
+              fi
+
+              # Ensure PAT exists
+              if [ -z "${{ secrets.GHCR_PAT }}" ]; then
+                echo "[deploy][error] GHCR_PAT is empty. Set a PAT with at least 'read:packages' (and 'repo' if private)."
+                exit 1
+              fi
+
+              # Auth and pull
+              echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "$USERNAME" --password-stdin
               sudo docker pull "${IMAGE_LC}:latest"
             fi
 
