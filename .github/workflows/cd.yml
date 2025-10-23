@@ -54,15 +54,22 @@ jobs:
             IMAGE="ghcr.io/${{ github.repository }}"
             IMAGE_LC=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
 
-            # Login to GHCR (required if the image is private). Provide GHCR_PAT with 'read:packages' scope.
-            docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GHCR_PAT }}"
+            # Ensure Docker is present (idempotent)
+            if ! command -v docker >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl enable --now docker
+            fi
+
+            # Login to GHCR (required for private images); uses password-stdin to avoid warning
+            echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
             # Pull the newest image
-            docker pull "${IMAGE_LC}:latest"
+            sudo docker pull "${IMAGE_LC}:latest"
 
             # Stop and remove existing container if present
-            docker stop parrokit || true
-            docker rm parrokit || true
+            sudo docker stop parrokit || true
+            sudo docker rm parrokit || true
 
             # Run container (exposes FastAPI at port 8000)
-            docker run -d --name parrokit -p 8000:8000 "${IMAGE_LC}:latest"
+            sudo docker run -d --name parrokit -p 8000:8000 "${IMAGE_LC}:latest"
