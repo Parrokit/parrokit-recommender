@@ -81,7 +81,7 @@ jobs:
           key: ${{ github.event.inputs.target == 'oci' && secrets.OCI_SSH_KEY || '' }}
           password: ${{ github.event.inputs.target == 'myhome' && secrets.MYHOME_SSH_PASSWORD || '' }}
           command_timeout: '300m'
-          timeout: '900s'
+          timeout: '300m'
           script: |
             set -e
             TARGET="${{ github.event.inputs.target }}"
