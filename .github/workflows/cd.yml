@@ -4,20 +4,48 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target (oci / myhome)"
+        required: true
+        default: "oci"
+        type: choice
+        options:
+          - oci
+          - myhome
+      runtime:
+        description: "Runtime type (docker / venv / none)"
+        required: true
+        default: "docker"
+        type: choice
+        options:
+          - docker
+          - venv
+          - none
+      accel:
+        description: "Accelerator type (cpu / gpu)"
+        required: true
+        default: "cpu"
+        type: choice
+        options:
+          - cpu
+          - gpu
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  build-and-push:
+  cd:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.runtime == 'docker')
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -31,6 +59,7 @@ jobs:
           echo "image=${IMAGE,,}" >> $GITHUB_OUTPUT  # 소문자화
 
       - name: Build and Push (GHCR)
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.runtime == 'docker')
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -39,27 +68,25 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
-  deploy:
-    runs-on: ubuntu-24.04
-    needs: build-and-push
-    steps:
-      - name: Deploy to Oracle VM (pull latest image and run)
+
+      - name: Deploy to VM (Docker / venv / none)
+        if: github.event_name == 'workflow_dispatch'
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: 152.67.214.221
-          username: ubuntu
+          host: ${{ github.event.inputs.target == 'oci' && secrets.OCI_IP_ADDRESS || secrets.MYHOME_IP_ADDRESS }}
+          username: ${{ github.event.inputs.target == 'oci' && 'ubuntu' || 'bull' }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: '60m'
+          timeout: '900s'
           script: |
             set -e
-            IMAGE="ghcr.io/${{ github.repository }}"
-            IMAGE_LC=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+            TARGET="${{ github.event.inputs.target }}"
+            RUNTIME="${{ github.event.inputs.runtime }}"
+            ACCEL="${{ github.event.inputs.accel }}"
 
-            echo "[deploy] Using existing Docker on VM:"
-            sudo docker --version || true
+            echo "[deploy] target=${TARGET}, runtime=${RUNTIME}, accel=${ACCEL}"
 
-            echo "[deploy] target image: ${IMAGE_LC}"
-
-            # Ensure /srv/parrokit exists and sync .env from GitHub Secret
+            # 공통: /srv/parrokit 및 .env 동기화
             sudo mkdir -p /srv/parrokit
             cat << 'EOF_ENV' | sudo tee /srv/parrokit/.env > /dev/null
             ${{ secrets.PARROKIT_ENV_FILE }}
@@ -71,6 +98,21 @@ jobs:
               ls -al /srv/parrokit || true
               exit 1
             fi
+
+            # 아직은 도커 배포만 구현. venv/none은 이후 확장
+            if [ "$RUNTIME" != "docker" ]; then
+              echo "[deploy] 현재는 docker 배포만 구현되어 있습니다. (runtime=$RUNTIME)"
+              echo "[deploy] 나중에 venv/none 전략은 여기서 분기 추가하면 됩니다."
+              exit 0
+            fi
+
+            IMAGE="ghcr.io/${{ github.repository }}"
+            IMAGE_LC=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+
+            echo "[deploy] Using existing Docker on VM:"
+            sudo docker --version || true
+
+            echo "[deploy] target image: ${IMAGE_LC}:latest"
 
             # 1) Try anonymous pull first (works if GHCR package is public)
             if ! sudo docker pull "${IMAGE_LC}:latest"; then
@@ -99,5 +141,3 @@ jobs:
 
             # Run container (exposes FastAPI at port 8000)
             sudo docker run -d --name parrokit -p 8000:8000 --env-file /srv/parrokit/.env "${IMAGE_LC}:latest"
-          command_timeout: '60m'
-          timeout: '900s'  
