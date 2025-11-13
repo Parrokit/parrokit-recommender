@@ -70,6 +70,12 @@ jobs:
             EOF_ENV
             sudo chmod 600 /srv/parrokit/.env || true
 
+            if [ ! -f /srv/parrokit/.env ]; then
+              echo "[deploy][error] /srv/parrokit/.env 가 없습니다."
+              ls -al /srv/parrokit || true
+              exit 1
+            fi
+
             # 1) Try anonymous pull first (works if GHCR package is public)
             if ! sudo docker pull "${IMAGE_LC}:latest"; then
               echo "[deploy] Anonymous pull denied. Trying authenticated pull..."
