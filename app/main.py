@@ -6,7 +6,7 @@ import os
 
 from app.dependencies import init_models
 from app.api.title_search_router import router as title_search_router
-
+from app.api.mf_recommend_router import router as mf_recommend_router
 
 
 @asynccontextmanager
@@ -44,3 +44,4 @@ def get_memory_usage():
     }
 
 app.include_router(title_search_router)
+app.include_router(mf_recommend_router)
