@@ -35,7 +35,7 @@ def recommend_from_titles_with_metadata(
         items_iter = search_payload
 
     mapped: List[Dict[str, Any]] = []
-    liked_ids: List[int] = []
+    liked_ids: List[int] = []  
 
     for item in items_iter:
         # 혹시 item 이 dict 가 아닐 수도 있으니 방어 코드
