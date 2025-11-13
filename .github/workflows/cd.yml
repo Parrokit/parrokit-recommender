@@ -196,10 +196,10 @@ jobs:
                   pip install -r requirements.txt
                 fi
 
-                # 기존 uvicorn 종료
-                if pgrep -f "uvicorn app.main:app" >/dev/null 2>&1; then
+                # 기존 uvicorn 종료 (프로세스 이름 기준으로만 종료해서 ssh 세션이 같이 죽지 않도록)
+                if pgrep -x "uvicorn" >/dev/null 2>&1; then
                   echo "[deploy] stopping existing uvicorn process"
-                  pkill -f "uvicorn app.main:app" || true
+                  pkill -x "uvicorn" || true
                 fi
 
                 echo "[deploy] starting uvicorn with venv on port 8000"
