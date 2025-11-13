@@ -7,6 +7,7 @@ import torch
 from app.models.anime_title_searcher import AnimeTitleSearcher
 from app.models.matrix_factorzation import MatrixFactorization
 from app.services.anime_translator_infer_service import load_translator_model
+from app.init_data import init_data
 
 # ===== 전역 객체 =====
 title_searcher = None
@@ -19,6 +20,8 @@ anime_id_to_item_idx = None
 
 
 async def init_models():
+    init_data()
+
     global title_searcher, recommender, translator_model, translator_tokenizer
     global anime_meta_df, mf_items, anime_id_to_item_idx
 

@@ -89,4 +89,4 @@ jobs:
             sudo docker rm parrokit || true
 
             # Run container (exposes FastAPI at port 8000)
-            sudo docker run -d --name parrokit -p 8000:8000 "${IMAGE_LC}:latest"
+            sudo docker run -d --name parrokit -p 8000:8000 --env-file .env "${IMAGE_LC}:latest"

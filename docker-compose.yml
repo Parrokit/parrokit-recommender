@@ -1,0 +1,4 @@
+services:
+  parrokit:
+    env_file:
+      - .env
