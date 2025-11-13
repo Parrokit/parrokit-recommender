@@ -90,5 +90,5 @@ jobs:
 
             # Run container (exposes FastAPI at port 8000)
             sudo docker run -d --name parrokit -p 8000:8000 --env-file .env "${IMAGE_LC}:latest"
-          command_timeout: '60s'
+          command_timeout: '60m'
           timeout: '900s'   
