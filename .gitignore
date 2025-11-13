@@ -1,3 +1,22 @@
+# 로컬/대용량 데이터
+app/data/
+data/
+
+# 학습된/다운로드된 모델 가중치
+app/models/weights/
+mbart_ja2ko_title_lora_mps/
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains 계열 (PyCharm 등)
+.idea/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
