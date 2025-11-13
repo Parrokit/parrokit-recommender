@@ -2,7 +2,7 @@
 from typing import List
 
 from fastapi import APIRouter, Query
-from app.services.title_search_service import search_anime_titles, batch_search_anime_titles
+from app.services.title_search_infer_service import search_anime_titles, batch_search_anime_titles
 
 router = APIRouter(
     prefix="/titles",
