@@ -88,10 +88,10 @@ def translate_jp_to_ko(text: str) -> str:
 
     return out
 
-
 def translate_anime_metadata_by_ids(anime_ids: List[int]) -> List[Dict[str, Any]]:
     """
     anime_id 기준으로 Name/Synopsis를 번역 후 JSON 반환.
+    Score / Genres / Type / Favorites / Image URL 포함
     """
     if deps.anime_meta_df is None:
         raise RuntimeError("anime_meta_df가 초기화되지 않았습니다. init_models()를 확인하세요.")
@@ -112,25 +112,36 @@ def translate_anime_metadata_by_ids(anime_ids: List[int]) -> List[Dict[str, Any]
 
         print(f"\n--- [{idx}/{len(subset)}] anime_id={aid} ---")
         print(f"[JP Name] {name_jp[:50]}{'...' if len(name_jp) > 50 else ''}")
-        print(
-            f"[JP Synopsis] {syn_jp[:50]}{'...' if len(syn_jp) > 50 else ''}")
+        print(f"[JP Synopsis] {syn_jp[:50]}{'...' if len(syn_jp) > 50 else ''}")
 
         # 번역
         name_ko = translate_jp_to_ko(name_jp) if name_jp else ""
         syn_ko = translate_jp_to_ko(syn_jp) if syn_jp else ""
 
-        print(
-            f"[결과] name_ko={name_ko[:50]}{'...' if len(name_ko) > 50 else ''}")
-        print(
-            f"[결과] synopsis_ko={syn_ko[:50]}{'...' if len(syn_ko) > 50 else ''}")
+        print(f"[결과] name_ko={name_ko[:50]}{'...' if len(name_ko) > 50 else ''}")
+        print(f"[결과] synopsis_ko={syn_ko[:50]}{'...' if len(syn_ko) > 50 else ''}")
+
+        score = row.get("Score", None)
+        genres = row.get("Genres", None)
+        type_ = row.get("Type", None)
+        favorites = row.get("Favorites", None)
+        image_url = row.get("Image URL", None)
 
         results.append(
             {
                 "anime_id": aid,
+
+                # 기존 필드
                 "name_jp": name_jp,
                 "name_ko": name_ko,
                 "synopsis_jp": syn_jp,
                 "synopsis_ko": syn_ko,
+
+                "score": score,
+                "genres": genres,
+                "type": type_,
+                "favorites": favorites,
+                "image_url": image_url,
             }
         )
 
