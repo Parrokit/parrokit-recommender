@@ -42,6 +42,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.runtime == 'docker')
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -99,45 +100,100 @@ jobs:
               exit 1
             fi
 
-            # 아직은 도커 배포만 구현. venv/none은 이후 확장
-            if [ "$RUNTIME" != "docker" ]; then
-              echo "[deploy] 현재는 docker 배포만 구현되어 있습니다. (runtime=$RUNTIME)"
-              echo "[deploy] 나중에 venv/none 전략은 여기서 분기 추가하면 됩니다."
-              exit 0
-            fi
+            APP_DIR="/srv/parrokit/app"
+            VENV_DIR="/srv/parrokit/venv"
 
-            IMAGE="ghcr.io/${{ github.repository }}"
-            IMAGE_LC=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+            case "$RUNTIME" in
+              docker)
+                echo "[deploy] docker runtime 선택됨"
 
-            echo "[deploy] Using existing Docker on VM:"
-            sudo docker --version || true
+                IMAGE="ghcr.io/${{ github.repository }}"
+                IMAGE_LC=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
 
-            echo "[deploy] target image: ${IMAGE_LC}:latest"
+                echo "[deploy] Using existing Docker on VM:"
+                sudo docker --version || true
 
-            # 1) Try anonymous pull first (works if GHCR package is public)
-            if ! sudo docker pull "${IMAGE_LC}:latest"; then
-              echo "[deploy] Anonymous pull denied. Trying authenticated pull..."
+                echo "[deploy] target image: ${IMAGE_LC}:latest"
 
-              # Fallback username: prefer GHCR_USERNAME secret, else use github.actor
-              USERNAME="${{ secrets.GHCR_USERNAME }}"
-              if [ -z "$USERNAME" ]; then
-                USERNAME="${{ github.actor }}"
-              fi
+                # 1) Try anonymous pull first (works if GHCR package is public)
+                if ! sudo docker pull "${IMAGE_LC}:latest"; then
+                  echo "[deploy] Anonymous pull denied. Trying authenticated pull..."
 
-              # Ensure PAT exists
-              if [ -z "${{ secrets.GHCR_PAT }}" ]; then
-                echo "[deploy][error] GHCR_PAT is empty. Set a PAT with at least 'read:packages' (and 'repo' if private)."
+                  # Fallback username: prefer GHCR_USERNAME secret, else use github.actor
+                  USERNAME="${{ secrets.GHCR_USERNAME }}"
+                  if [ -z "$USERNAME" ]; then
+                    USERNAME="${{ github.actor }}"
+                  fi
+
+                  # Ensure PAT exists
+                  if [ -z "${{ secrets.GHCR_PAT }}" ]; then
+                    echo "[deploy][error] GHCR_PAT is empty. Set a PAT with at least 'read:packages' (and 'repo' if private)."
+                    exit 1
+                  fi
+
+                  # Auth and pull
+                  echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "$USERNAME" --password-stdin
+                  sudo docker pull "${IMAGE_LC}:latest"
+                fi
+
+                # Stop and remove existing container if present
+                sudo docker stop parrokit || true
+                sudo docker rm parrokit || true
+
+                # Run container (exposes FastAPI at port 8000)
+                sudo docker run -d --name parrokit -p 8000:8000 --env-file /srv/parrokit/.env "${IMAGE_LC}:latest"
+                ;;
+              venv)
+                echo "[deploy] venv runtime 선택됨"
+
+                # 코드 동기화 (Git 기준 – private이면 deploy key 나 PAT 필요)
+                if [ ! -d "$APP_DIR/.git" ]; then
+                  echo "[deploy] cloning repository to $APP_DIR"
+                  sudo rm -rf "$APP_DIR"
+                  sudo git clone "https://github.com/${{ github.repository }}.git" "$APP_DIR"
+                else
+                  echo "[deploy] updating repository in $APP_DIR"
+                  cd "$APP_DIR"
+                  sudo git fetch --all
+                  sudo git reset --hard "${{ github.sha }}"
+                fi
+
+                cd "$APP_DIR"
+
+                # Python / venv 준비
+                if ! command -v python3 >/dev/null 2>&1; then
+                  echo "[deploy] installing python3, pip, venv..."
+                  sudo apt-get update
+                  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-venv python3-pip git
+                fi
+
+                if [ ! -d "$VENV_DIR" ]; then
+                  echo "[deploy] creating venv at $VENV_DIR"
+                  sudo python3 -m venv "$VENV_DIR"
+                fi
+
+                # venv 안에서 requirements 설치
+                source "$VENV_DIR/bin/activate"
+                pip install --upgrade pip
+                if [ -f requirements.txt ]; then
+                  pip install -r requirements.txt
+                fi
+
+                # 기존 uvicorn 프로세스 종료
+                if pgrep -f "uvicorn app.main:app" >/dev/null 2>&1; then
+                  echo "[deploy] stopping existing uvicorn process"
+                  pkill -f "uvicorn app.main:app" || true
+                fi
+
+                # 백그라운드로 uvicorn 실행
+                echo "[deploy] starting uvicorn with venv on port 8000"
+                nohup "$VENV_DIR/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000 > /srv/parrokit/app.log 2>&1 &
+                ;;
+              none)
+                echo "[deploy] runtime=none: /srv/parrokit/.env 만 동기화하고 서버 측 실행은 하지 않습니다."
+                ;;
+              *)
+                echo "[deploy][error] Unknown runtime: $RUNTIME"
                 exit 1
-              fi
-
-              # Auth and pull
-              echo "${{ secrets.GHCR_PAT }}" | sudo docker login ghcr.io -u "$USERNAME" --password-stdin
-              sudo docker pull "${IMAGE_LC}:latest"
-            fi
-
-            # Stop and remove existing container if present
-            sudo docker stop parrokit || true
-            sudo docker rm parrokit || true
-
-            # Run container (exposes FastAPI at port 8000)
-            sudo docker run -d --name parrokit -p 8000:8000 --env-file /srv/parrokit/.env "${IMAGE_LC}:latest"
+                ;;
+            esac
