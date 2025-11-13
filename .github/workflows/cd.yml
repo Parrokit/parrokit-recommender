@@ -77,8 +77,9 @@ jobs:
           host: ${{ github.event.inputs.target == 'oci' && secrets.OCI_IP_ADDRESS || secrets.MYHOME_IP_ADDRESS }}
           username: ${{ github.event.inputs.target == 'oci' && 'ubuntu' || 'bull' }}
           port: ${{ github.event.inputs.target == 'oci' && '22' || '2222' }}
-          key: ${{ secrets.SSH_PRIVATE_KEY == 'secrets.SSH_PRIVATE_KEY' && '' || 'secrets.HOME_SSH_PRIVATE_KEY ' }}
-          command_timeout: '60m'
+          key: ${{ github.event.inputs.target == 'oci' && secrets.OCI_SSH_KEY || '' }}
+          password: ${{ github.event.inputs.target == 'myhome' && secrets.MYHOME_SSH_PASSWORD || '' }}
+          command_timeout: '300m'
           timeout: '900s'
           script: |
             set -e
