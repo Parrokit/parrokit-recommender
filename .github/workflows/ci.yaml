@@ -1,9 +1,8 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches: [ main ]
+    branches: [ dev ]
 
 jobs:
   test-lint:
@@ -35,6 +34,8 @@ jobs:
           if [ -d tests ]; then pytest -q; else echo "no tests"; fi
 
   docker-build:
+    # git action 용량 부족, 이미지 빌드하기에 ML/DL 프로세스가 큼
+    if: false
     runs-on: ubuntu-24.04
     needs: test-lint
     steps:
