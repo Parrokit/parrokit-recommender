@@ -63,6 +63,13 @@ jobs:
 
             echo "[deploy] target image: ${IMAGE_LC}"
 
+            # Ensure /srv/parrokit exists and sync .env from GitHub Secret
+            sudo mkdir -p /srv/parrokit
+            cat << 'EOF_ENV' | sudo tee /srv/parrokit/.env > /dev/null
+${{ secrets.PARROKIT_ENV_FILE }}
+EOF_ENV
+            sudo chmod 600 /srv/parrokit/.env || true
+
             # 1) Try anonymous pull first (works if GHCR package is public)
             if ! sudo docker pull "${IMAGE_LC}:latest"; then
               echo "[deploy] Anonymous pull denied. Trying authenticated pull..."
