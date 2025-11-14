@@ -9,6 +9,7 @@ from app.api.title_search_router import router as title_search_router
 from app.api.mf_recommend_router import router as mf_recommend_router
 from app.api.anime_translator_router import router as anime_translator_router
 from app.api.recommend_flow_router import router as recommend_flow_router 
+from app.api.ws_recommend import router as ws_recommend 
 
 
 @asynccontextmanager
@@ -49,3 +50,4 @@ app.include_router(title_search_router)
 app.include_router(mf_recommend_router)
 app.include_router(anime_translator_router)
 app.include_router(recommend_flow_router)
+app.include_router(ws_recommend)

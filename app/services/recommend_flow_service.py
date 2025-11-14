@@ -1,6 +1,6 @@
 # app/services/recommend_flow_service.py
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable, Optional
 
 from app.services.title_search_infer_service import batch_search_anime_titles_top1
 from app.services.mf_recommend_infer_service import recommend_anime_from_ids
@@ -12,12 +12,21 @@ def recommend_from_titles_with_metadata(
     top_k: int = 10,
     cutoff: float = 0.55,
     exclude_watched: bool = True,
+    progress_cb: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict[str, Any]:
     """
     1) 사용자가 입력한 제목 리스트 -> 각 제목당 top1 anime_id 뽑기
     2) 그 anime_id 들로 MF 추천
     3) 추천된 anime_id 들에 대해 Name / Synopsis 번역해서 반환
     """
+
+    def _emit(event: Dict[str, Any]) -> None:
+        if progress_cb is not None:
+            try:
+                progress_cb(event)
+            except Exception as e:
+                # 진행 상황 전송에서 에러가 나더라도 본 로직은 계속 진행
+                print(f"[WARN] progress_cb error: {e}")
 
     # 1) 제목 검색 (top-1 결과만)
     search_payload = batch_search_anime_titles_top1(
@@ -56,6 +65,15 @@ def recommend_from_titles_with_metadata(
         if isinstance(top, dict) and "anime_id" in top:
             liked_ids.append(int(top["anime_id"]))
 
+    _emit(
+        {
+            "event": "search_completed",
+            "input_titles": titles,
+            "mapped": mapped,
+            "liked_ids": liked_ids,
+        }
+    )
+
     if not liked_ids:
         raise ValueError("입력 제목들로부터 유효한 anime_id를 하나도 찾지 못했습니다.")
 
@@ -66,10 +84,18 @@ def recommend_from_titles_with_metadata(
         exclude_watched=exclude_watched,
     )
 
+    _emit(
+        {
+            "event": "recommendation_completed",
+            "input_anime_ids": liked_ids,
+            "recommended_anime_ids": rec_ids,
+        }
+    )
+
     # 3) 추천 anime_id 들에 대한 메타데이터 번역
     translated_meta = translate_anime_metadata_by_ids(rec_ids)
 
-    return {
+    result: Dict[str, Any] = {
         "input_titles": titles,
         "search": mapped,
         "recommend": {
@@ -78,3 +104,12 @@ def recommend_from_titles_with_metadata(
         },
         "translated_metadata": translated_meta,
     }
+
+    _emit(
+        {
+            "event": "done",
+            "result": result,
+        }
+    )
+
+    return result
