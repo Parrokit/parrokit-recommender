@@ -110,13 +110,23 @@ def translate_anime_metadata_by_ids(anime_ids: List[int]) -> List[Dict[str, Any]
         name_jp = str(row.get("Name", "") or "")
         syn_jp = str(row.get("Synopsis", "") or "")
 
+        # 기존 번역 필드 확인 (이미 번역이 존재하면 번역 스킵)
+        existing_name_ko = row.get("Korean Name", "")
+        existing_syn_ko = row.get("Korean Synopsis", "")
+
+        if isinstance(existing_name_ko, str) and existing_name_ko.strip():
+            name_ko = existing_name_ko.strip()
+        else:
+            name_ko = translate_jp_to_ko(name_jp) if name_jp else ""
+
+        if isinstance(existing_syn_ko, str) and existing_syn_ko.strip():
+            syn_ko = existing_syn_ko.strip()
+        else:
+            syn_ko = translate_jp_to_ko(syn_jp) if syn_jp else ""
+
         print(f"\n--- [{idx}/{len(subset)}] anime_id={aid} ---")
         print(f"[JP Name] {name_jp[:50]}{'...' if len(name_jp) > 50 else ''}")
         print(f"[JP Synopsis] {syn_jp[:50]}{'...' if len(syn_jp) > 50 else ''}")
-
-        # 번역
-        name_ko = translate_jp_to_ko(name_jp) if name_jp else ""
-        syn_ko = translate_jp_to_ko(syn_jp) if syn_jp else ""
 
         print(f"[결과] name_ko={name_ko[:50]}{'...' if len(name_ko) > 50 else ''}")
         print(f"[결과] synopsis_ko={syn_ko[:50]}{'...' if len(syn_ko) > 50 else ''}")
