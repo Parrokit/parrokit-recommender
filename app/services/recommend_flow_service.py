@@ -105,11 +105,4 @@ def recommend_from_titles_with_metadata(
         "translated_metadata": translated_meta,
     }
 
-    _emit(
-        {
-            "event": "done",
-            "result": result,
-        }
-    )
-
     return result
