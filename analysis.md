@@ -1,7 +1,7 @@
 # 애니메이션 추천 시스템
 
-> **애니메이션 추천 시스템 백엔드 서버**
-> Python · FastAPI · PyTorch · Matrix Factorization · Collaborative Filtering · Sentence Transformers · mBART-50 (LoRA)
+> **협업 필터링 기반 다국어 애니메이션 추천 서버**
+> Python · FastAPI · PyTorch · Matrix Factorization · Collaborative Filtering · Sentence Transformers · mBART-50 (LoRA) · Prompt Engineering (OpenAI API) · GitHub Actions (CI/CD) · Docker
 > 개발 기간: 2025년 9월 ~ 2025년 12월 / 개인 프로젝트
 
 ---
@@ -184,6 +184,25 @@ GitHub Actions + OCI(Oracle Cloud) / 자택 서버(WSL) 이중 배포 환경을 
 | OCI vs 자택 서버의 환경 차이 | sudo 유무, SSH 인증 방식, 포트, GPU 유무 등이 모두 다름 | `workflow_dispatch`에 target/runtime/accel 파라미터를 두고 분기 처리 |
 
 최종적으로 `workflow_dispatch` 기반의 **메뉴 방식 CD**를 구현하여, 배포 대상(OCI / MyHome)과 런타임(Docker / venv / none), 가속기(CPU / GPU)를 선택할 수 있는 유연한 구조를 갖추었습니다.
+
+**CI/CD 파이프라인 구조**
+
+```bash
+[CI] dev push 시 자동 실행
+  └─ Ruff (lint) → MyPy (type-check) → Pytest
+     ※ Docker build는 ML 의존성 용량 문제로 CI에서 비활성화
+
+[CD] workflow_dispatch 수동 트리거
+  ├─ target:  OCI (SSH 키 인증) / MyHome (패스워드 인증)
+  ├─ runtime: Docker (GHCR pull → 컨테이너 실행)
+  │           venv   (git pull → pip install → uvicorn 기동)
+  │           none   (.env 동기화만)
+  └─ accel:   CPU / GPU
+```
+
+- **CI**: `dev` 브랜치 push 시 lint → type-check → test 순서로 코드 품질을 검증
+- **CD**: Docker 런타임 선택 시 **GHCR(GitHub Container Registry)**에 이미지를 빌드/푸시한 뒤, 배포 대상 VM에서 pull하여 실행. GHA 캐시(`cache-from: type=gha`)로 재빌드 시간을 단축
+- **venv 런타임**: Docker를 사용할 수 없는 환경(GPU 서버 등)을 위해 git clone/pull → venv 생성 → pip install → nohup uvicorn 기동의 직접 배포 경로도 구현
 
 ---
 
