@@ -32,9 +32,23 @@ class AnimeTitleSearcher:
     def fit(self, df: pd.DataFrame, title_col: str = "Name", id_col: str = "anime_id") -> "AnimeTitleSearcher":
         """주어진 DataFrame으로 인덱스를 재구성합니다."""
         assert title_col in df.columns and id_col in df.columns, f"DataFrame must contain '{title_col}' and '{id_col}'"
-        self.titles_df = df[[id_col, title_col]].copy()
-        self.docs = [normalize_title(t) for t in df[title_col].tolist()]
+        # Korean Name 우선 → 없으면 Name 사용
+        title_ko = df["Korean Name"] if "Korean Name" in df.columns else None
+        title_jp = df[title_col]
+
+        final_titles = []
+        for idx in range(len(df)):
+            ko = title_ko.iloc[idx].strip() if title_ko is not None and isinstance(title_ko.iloc[idx], str) else ""
+            jp = title_jp.iloc[idx].strip() if isinstance(title_jp.iloc[idx], str) else ""
+            base = ko if ko else jp
+            final_titles.append(normalize_title(base))
+
+        self.titles_df = df[[id_col]].copy()
+        self.titles_df["final_title"] = final_titles
+
+        self.docs = final_titles
         self.id_map = df[id_col].tolist()
+
         self.emb = self.model.encode(
             self.docs,
             normalize_embeddings=self.normalize_embeddings,
